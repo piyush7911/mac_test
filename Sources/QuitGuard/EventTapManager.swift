@@ -2,6 +2,7 @@ import Foundation
 import AppKit
 import ApplicationServices
 
+@MainActor
 final class EventTapManager {
     private weak var protectedStore: ProtectedAppStore?
     private var eventTap: CFMachPort?
@@ -26,7 +27,10 @@ final class EventTapManager {
             }
 
             let manager = Unmanaged<EventTapManager>.fromOpaque(refcon).takeUnretainedValue()
-            return manager.handle(proxy: proxy, type: type, event: event)
+
+            return MainActor.assumeIsolated {
+                manager.handle(proxy: proxy, type: type, event: event)
+            }
         }
 
         eventTap = CGEvent.tapCreate(
@@ -79,9 +83,7 @@ final class EventTapManager {
             return Unmanaged.passUnretained(event)
         }
 
-        let shouldProtect = DispatchQueue.main.sync { [weak protectedStore] in
-            protectedStore?.contains(bundleIdentifier) ?? false
-        }
+        let shouldProtect = protectedStore?.contains(bundleIdentifier) ?? false
 
         guard shouldProtect else {
             return Unmanaged.passUnretained(event)
@@ -98,26 +100,24 @@ final class EventTapManager {
     }
 
     private func showConfirmation(for app: NSRunningApplication) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self, !self.isShowingConfirmation else { return }
-            self.isShowingConfirmation = true
+        guard !isShowingConfirmation else { return }
+        isShowingConfirmation = true
 
-            NSApp.activate(ignoringOtherApps: true)
+        NSApp.activate(ignoringOtherApps: true)
 
-            let appName = app.localizedName ?? "this application"
-            let alert = NSAlert()
-            alert.alertStyle = .warning
-            alert.messageText = "Quit \(appName)?"
-            alert.informativeText = "This application is protected."
-            alert.addButton(withTitle: "Quit")
-            alert.addButton(withTitle: "Cancel")
+        let appName = app.localizedName ?? "this application"
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Quit \(appName)?"
+        alert.informativeText = "This application is protected."
+        alert.addButton(withTitle: "Quit")
+        alert.addButton(withTitle: "Cancel")
 
-            let response = alert.runModal()
-            if response == .alertFirstButtonReturn {
-                app.terminate()
-            }
-
-            self.isShowingConfirmation = false
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            app.terminate()
         }
+
+        isShowingConfirmation = false
     }
 }
