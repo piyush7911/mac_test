@@ -123,9 +123,8 @@ final class EventTapManager {
             return false
         }
 
-        // Important:
-        // Always protect QuitGuard itself from Cmd + Q.
-        // This prevents QuitGuard from closing while its confirmation dialog is active.
+        // Always silently protect QuitGuard itself.
+        // Pressing Cmd + Q should never close QuitGuard.
         if bundleIdentifier == Bundle.main.bundleIdentifier {
             return true
         }
@@ -156,7 +155,18 @@ final class EventTapManager {
         alert.addButton(withTitle: "Quit")
         alert.addButton(withTitle: "Cancel")
 
+        // Bring QuitGuard forward so the confirmation appears in front of
+        // protected apps like WhatsApp, Chrome, VS Code, Terminal, etc.
+        NSRunningApplication.current.activate(
+            options: [.activateIgnoringOtherApps, .activateAllWindows]
+        )
+
         NSApp.activate(ignoringOtherApps: true)
+
+        // Keep the confirmation dialog above normal app windows.
+        alert.window.level = .modalPanel
+        alert.window.center()
+        alert.window.makeKeyAndOrderFront(nil)
 
         let response = alert.runModal()
 
@@ -164,6 +174,9 @@ final class EventTapManager {
             frontmostApp.terminate()
         }
 
+        // Always block the original Cmd + Q event.
+        // If user clicks Quit, we manually terminate the protected app.
+        // If user clicks Cancel, nothing quits.
         return true
     }
 }
