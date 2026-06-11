@@ -13,12 +13,13 @@ final class AppCatalog: ObservableObject {
 
     func reload() {
         isLoading = true
-        Task.detached(priority: .userInitiated) { [searchRoots] in
+
+        // Keep discovery on the main actor for Swift 6 concurrency safety.
+        // The search scope is intentionally small for the MVP: /Applications and ~/Applications.
+        Task {
             let discovered = Self.discoverApps(in: searchRoots)
-            await MainActor.run {
-                self.apps = discovered
-                self.isLoading = false
-            }
+            self.apps = discovered
+            self.isLoading = false
         }
     }
 
