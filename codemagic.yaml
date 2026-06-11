@@ -1,0 +1,52 @@
+workflows:
+  quitguard-macos-build:
+    name: QuitGuard macOS Build
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+
+    environment:
+      xcode: latest
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: "*"
+          include: true
+          source: true
+      cancel_previous_builds: true
+
+    scripts:
+      - name: Show Xcode version
+        script: |
+          xcodebuild -version
+
+      - name: Clean build folder
+        script: |
+          rm -rf build
+          mkdir -p build
+
+      - name: Build QuitGuard
+        script: |
+          xcodebuild \
+            -project QuitGuard.xcodeproj \
+            -scheme QuitGuard \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            clean build
+
+      - name: Package app
+        script: |
+          APP_PATH="build/Build/Products/Release/QuitGuard.app"
+
+          if [ ! -d "$APP_PATH" ]; then
+            echo "QuitGuard.app was not found at $APP_PATH"
+            exit 1
+          fi
+
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "build/QuitGuard-macOS.zip"
+
+    artifacts:
+      - build/QuitGuard-macOS.zip
+      - /tmp/xcodebuild_logs/*.log
