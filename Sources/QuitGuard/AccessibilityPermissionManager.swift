@@ -11,7 +11,9 @@ final class AccessibilityPermissionManager: ObservableObject {
     }
 
     func requestPermission() {
-        let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue() as String: true] as CFDictionary
+        // Swift 6 treats the imported kAXTrustedCheckOptionPrompt global as concurrency-unsafe.
+        // The underlying Accessibility option key is stable, so use the literal key.
+        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         AXIsProcessTrustedWithOptions(options)
         refresh()
     }
