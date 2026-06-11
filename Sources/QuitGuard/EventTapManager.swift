@@ -1,5 +1,6 @@
 @preconcurrency import AppKit
 @preconcurrency import CoreGraphics
+import ApplicationServices
 import Foundation
 
 @MainActor
@@ -16,11 +17,11 @@ final class EventTapManager {
 
     func start() {
         guard eventTap == nil else { return }
-        guard AccessibilityPermissionManager.isTrusted else { return }
+        guard AXIsProcessTrusted() else { return }
 
         let eventMask = CGEventMask(1 << CGEventType.keyDown.rawValue)
 
-        let callback: CGEventTapCallBack = { proxy, type, event, refcon in
+        let callback: CGEventTapCallBack = { _, type, event, refcon in
             guard type == .keyDown else {
                 return Unmanaged.passUnretained(event)
             }
@@ -130,7 +131,7 @@ final class EventTapManager {
             return false
         }
 
-        guard protectedStore.isProtected(bundleIdentifier: bundleIdentifier) else {
+        guard protectedStore.contains(bundleIdentifier) else {
             return false
         }
 
