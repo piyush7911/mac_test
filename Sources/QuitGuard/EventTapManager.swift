@@ -115,19 +115,26 @@ final class EventTapManager {
     }
 
     private func handleCommandQ() -> Bool {
-        guard !isShowingConfirmation else {
-            return true
-        }
-
-        guard let protectedStore else {
-            return false
-        }
-
         guard let frontmostApp = NSWorkspace.shared.frontmostApplication else {
             return false
         }
 
         guard let bundleIdentifier = frontmostApp.bundleIdentifier else {
+            return false
+        }
+
+        // Important:
+        // Always protect QuitGuard itself from Cmd + Q.
+        // This prevents QuitGuard from closing while its confirmation dialog is active.
+        if bundleIdentifier == Bundle.main.bundleIdentifier {
+            return true
+        }
+
+        guard !isShowingConfirmation else {
+            return true
+        }
+
+        guard let protectedStore else {
             return false
         }
 
