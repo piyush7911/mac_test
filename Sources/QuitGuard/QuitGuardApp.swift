@@ -1,34 +1,50 @@
 import SwiftUI
 import AppKit
+import ServiceManagement
 
 @main
 struct QuitGuardApp: App {
-    @StateObject private var protectedStore = ProtectedAppStore()
-    @StateObject private var appCatalog = AppCatalog()
-
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
+    @StateObject private var protectedStore = ProtectedAppStore()
+    @StateObject private var appCatalog = AppCatalog()
+    @StateObject private var permissionManager = AccessibilityPermissionManager()
+    @StateObject private var launchAtLogin = LaunchAtLoginManager()
+
     var body: some Scene {
-        MenuBarExtra("QuitGuard", systemImage: "shield.checkered") {
-            MenuBarView(
-                protectedStore: protectedStore,
-                appCatalog: appCatalog
-            )
-            .onAppear {
-                appDelegate.configure(protectedStore: protectedStore)
-            }
+        MenuBarExtra("QuitGuard", systemImage: "lock.shield") {
+            MenuBarView()
+                .environmentObject(protectedStore)
+                .environmentObject(appCatalog)
+                .environmentObject(permissionManager)
+                .environmentObject(launchAtLogin)
+                .onAppear {
+                    appDelegate.configure(protectedStore: protectedStore)
+                    appCatalog.reload()
+                    permissionManager.refresh()
+                    launchAtLogin.refresh()
+                }
         }
+        .menuBarExtraStyle(.menu)
 
         Settings {
-            SettingsView(
-                protectedStore: protectedStore,
-                appCatalog: appCatalog
-            )
-            .frame(width: 620, height: 520)
+            SettingsView()
+                .environmentObject(protectedStore)
+                .environmentObject(appCatalog)
+                .environmentObject(permissionManager)
+                .environmentObject(launchAtLogin)
+                .frame(minWidth: 620, minHeight: 540)
+                .onAppear {
+                    appDelegate.configure(protectedStore: protectedStore)
+                    appCatalog.reload()
+                    permissionManager.refresh()
+                    launchAtLogin.refresh()
+                }
         }
     }
 }
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var eventTapManager: EventTapManager?
 
@@ -36,7 +52,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
     }
 
-    @MainActor
     func configure(protectedStore: ProtectedAppStore) {
         if eventTapManager == nil {
             eventTapManager = EventTapManager(protectedStore: protectedStore)
@@ -46,8 +61,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        Task { @MainActor in
-            eventTapManager?.stop()
-        }
+        eventTapManager?.stop()
     }
 }
